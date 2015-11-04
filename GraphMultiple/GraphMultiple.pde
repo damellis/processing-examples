@@ -3,17 +3,25 @@
 
 // This program takes ASCII-encoded strings
 // from the serial port at 9600 baud and graphs them. It expects values in the
-// range 0 to 1023, followed by a newline, or newline and carriage return
+// range 0 to 1023 followed by a newline, or newline and carriage return.
+// It can graph multiple independent data series, separated by spaces or tabs
+// within each lines, e.g.
+// 0 512 670
+// 3 509 672
+// 2 506 671
 
 // Created 20 Apr 2005
 // Updated 18 Jan 2008
 // by Tom Igoe
+// Updated 04 November 2015
+// by David Mellis
 // This example code is in the public domain.
 
 import processing.serial.*;
 
 Serial myPort;        // The serial port
-int xPos = 1;         // horizontal position of the graph
+int xPos = 1, prevXPos;         // horizontal position of the graph
+float[] prevVals, vals;
 
 void setup () {
   // set the window size:
@@ -33,9 +41,23 @@ void setup () {
 
   // set inital background:
   background(0);
+  colorMode(HSB);
 }
 void draw () {
-  // everything happens in the serialEvent()
+  if (xPos < prevXPos) background(0);
+  else if (vals != null && prevVals != null && prevVals.length == vals.length) {
+    for (int i = 0; i < vals.length; i++) {
+      float val = vals[i], prevVal = prevVals[i];
+      val = map(val, 0, 1023, 0, height);
+      prevVal = map(prevVal, 0, 1023, 0, height);
+
+      // draw the line:
+      stroke(255 / vals.length * i, 255, 255);
+      line(prevXPos, int(height - prevVal), xPos, int(height - val));
+    }    
+  }
+  prevXPos = xPos;
+  prevVals = vals;
 }
 
 void serialEvent (Serial myPort) {
@@ -45,18 +67,11 @@ void serialEvent (Serial myPort) {
   if (inString != null) {
     // trim off any whitespace:
     inString = trim(inString);
-    // convert to an int and map to the screen height:
-    float inByte = float(inString);
-    inByte = map(inByte, 0, 1023, 0, height);
-
-    // draw the line:
-    stroke(127, 34, 255);
-    line(xPos, height, xPos, height - inByte);
+    vals = float(splitTokens(inString));
 
     // at the edge of the screen, go back to the beginning:
     if (xPos >= width) {
       xPos = 0;
-      background(0);
     } else {
       // increment the horizontal position:
       xPos++;
